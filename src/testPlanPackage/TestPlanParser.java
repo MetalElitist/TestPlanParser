@@ -21,9 +21,14 @@ import org.w3c.dom.Element;
 public class TestPlanParser {
 
 	HashMap<String, String> httpSamplers = new HashMap<String, String>();
+	MainWindow window;
 	
 	public TestPlanParser(String filename) {
-		File fXmlFile = new File(filename);
+		window = new MainWindow(this);
+		window.setVisible(true);
+	}
+	
+	public void openFile(File fXmlFile) {
 		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder dBuilder;
 		try {
@@ -50,8 +55,8 @@ public class TestPlanParser {
 			
 			String[] samplersNamesArray = new String[samplerNamesList.size()];
 			samplerNamesList.toArray(samplersNamesArray);
-			MainWindow window = new MainWindow(samplersNamesArray, this);
-			window.setVisible(true);
+
+			window.setHttpSamplers(samplersNamesArray);
 		} catch (ParserConfigurationException | SAXException | IOException e) {
 			e.printStackTrace();
 		}
