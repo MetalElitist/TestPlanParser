@@ -1,5 +1,6 @@
 package GUI;
 
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -20,8 +21,10 @@ import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 
 import javax.swing.BoxLayout;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -31,10 +34,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.RowSorter;
+import javax.swing.SortOrder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
@@ -68,6 +74,10 @@ public class MainWindow extends JFrame {
 			public void windowOpened(WindowEvent e) {}public void windowClosed(WindowEvent e) {}public void windowIconified(WindowEvent e) {}public void windowDeiconified(WindowEvent e) {}public void windowActivated(WindowEvent e) {}public void windowDeactivated(WindowEvent e) {}
 		});
 		
+		JLabel sortLabel = new JLabel("Sort by: ");
+		JComboBox sortType = new JComboBox(new String[] {"Execution order", "Name", "Data size"});
+		sortType.setMaximumSize(new Dimension(150,20));
+		
 		JTextField searchField = new JTextField();
 		searchField.setMaximumSize(new Dimension(500, 20));
 		
@@ -84,8 +94,33 @@ public class MainWindow extends JFrame {
 			samplersTable.setDefaultRenderer(samplersTable.getColumnClass(i), cr);
 		}
 
-		TableRowSorter sorter = new TableRowSorter<TableModel>(samplersTable.getModel());
+		TableRowSorter<TableModel> sorter = new TableRowSorter<TableModel>(samplersTable.getModel());
 		samplersTable.setRowSorter(sorter);
+		
+		sortType.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				sort(sorter, sortType.getSelectedItem().toString(), SortOrder.ASCENDING);
+			}
+		});
+		JTableHeader header = samplersTable.getTableHeader();
+		header.addMouseListener(new MouseListener() {
+			boolean state;
+//			public MouseListener() {
+//				state = false;
+//			}
+			public void mouseClicked(MouseEvent e) {
+				int column = samplersTable.columnAtPoint(e.getPoint());
+				if (column == 0) {
+					state = !state;
+					SortOrder order;
+					if (state) order = SortOrder.ASCENDING; else {
+						order = SortOrder.DESCENDING;
+					}
+					sort(sorter, sortType.getSelectedItem().toString(), order);
+				}
+			}
+			public void mousePressed(MouseEvent e) {}public void mouseReleased(MouseEvent e) {}public void mouseEntered(MouseEvent e) {}public void mouseExited(MouseEvent e) {}
+		});
 		
 		samplersTable.addMouseListener(new MouseListener() {
 			public void mouseClicked(MouseEvent e) {
@@ -105,6 +140,7 @@ public class MainWindow extends JFrame {
 					menu.add(copyItem);
 					menu.show(samplersTable, e.getPoint().x, e.getPoint().y);
 				}
+				
 			}
 			public void mouseEntered(MouseEvent arg0) {}public void mouseExited(MouseEvent arg0) {}public void mousePressed(MouseEvent arg0) {}public void mouseReleased(MouseEvent arg0) {}
 		});
@@ -112,7 +148,6 @@ public class MainWindow extends JFrame {
 			public void valueChanged(ListSelectionEvent e) {
 				int[] rowIndices = samplersTable.getSelectionModel().getSelectedIndices();
 				if (rowIndices.length > 0) {
-					String index = (String)samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(rowIndices[0]), 1);
 					String bodyData = getSelectedRowValue().bodyData;
 					bodyDataText.setText(bodyData);
 				}
@@ -151,8 +186,14 @@ public class MainWindow extends JFrame {
 		
 		samplersPanel.setLayout(new BoxLayout(samplersPanel, BoxLayout.Y_AXIS));
 		
+		JPanel samplersPanelTop = new JPanel();
+		samplersPanelTop.setLayout(new BoxLayout(samplersPanelTop, BoxLayout.X_AXIS));
+		
 		setJMenuBar(menuBar);
-		samplersPanel.add(searchField);
+		samplersPanelTop.add(searchField);
+		samplersPanelTop.add(sortLabel);
+		samplersPanelTop.add(sortType);
+		samplersPanel.add(samplersPanelTop);
 		samplersPanel.add(scrollPane);
 		
 		setLayout(new BoxLayout(getContentPane(), BoxLayout.X_AXIS));
@@ -164,16 +205,26 @@ public class MainWindow extends JFrame {
 	}
 	
 	public void setHttpSamplers(httpSampler[] httpSamplers) {
-		String[][] samplersRow = new String[httpSamplers.length][2];
+		Object[][] samplersRow = new Object[httpSamplers.length][3];
 		for (int i = 0; i < samplersRow.length; i++) {
 			samplersRow[i][0] = httpSamplers[i].name;
-			samplersRow[i][1] = Integer.toString(httpSamplers[i].id);
+			samplersRow[i][1] = httpSamplers[i].id;
+			samplersRow[i][2] = httpSamplers[i].bodyData.length();
 		}
-		String[] samplersCol = new String[] {"Samplers", "id"};
+		String[] samplersCol = new String[] {"Samplers", "id", "dataSize"};
 		
-		samplersTableModel.addColumn("id");
+//		samplersTableModel.addColumn("id");
+//		samplersTableModel.addColumn("dataSize");
+		
 		samplersTableModel.setDataVector(samplersRow, samplersCol);
+		System.out.println(samplersTable.getColumnClass(0).toString());
+		System.out.println(samplersTable.getColumnClass(1).toString());
+		System.out.println(samplersTable.getColumnClass(2).toString());
+		
+		
 		TableColumnModel tcm = samplersTable.getColumnModel(); 
+		
+		tcm.removeColumn(tcm.getColumn(2));
 		tcm.removeColumn(tcm.getColumn(1));
 	}
 	
@@ -183,8 +234,9 @@ public class MainWindow extends JFrame {
 	}
 	
 	public httpSampler getSelectedRowValue() {
-		String index = (String)samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow()), 1);
-		return testPlanParser.httpSamplers.get(Integer.parseInt(index));
+//		int index = samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow()), 1);
+		int index = samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow());
+		return testPlanParser.httpSamplers.get(index);
 	}
 	
 	public void saveSettings() {
@@ -197,6 +249,22 @@ public class MainWindow extends JFrame {
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+	
+	public void sort(TableRowSorter<TableModel> sorter, String sortType, SortOrder order) {
+		String sort = sortType;
+
+		ArrayList<RowSorter.SortKey> sortKeys = new ArrayList<RowSorter.SortKey>();
+		if (sort == "Name") {
+			sortKeys.add(new RowSorter.SortKey(0, order));
+			sorter.setSortKeys(sortKeys);
+		} else if (sort == "Data size") {
+			sortKeys.add(new RowSorter.SortKey(2, order));
+			sorter.setSortKeys(sortKeys);
+		} else if (sort == "Execution order") {
+			sortKeys.add(new RowSorter.SortKey(1, order));
+			sorter.setSortKeys(sortKeys);
 		}
 	}
 	
