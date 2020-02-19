@@ -1,8 +1,5 @@
-package testPlanPackage;
+package GUI;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -11,8 +8,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -25,12 +20,8 @@ import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 
 import javax.swing.BoxLayout;
-import javax.swing.GroupLayout;
-import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -40,19 +31,16 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.RowFilter;
-import javax.swing.RowSorter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
 
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import testPlanPackage.TestPlanParser;
+import testPlanPackage.httpSampler;
 
 public class MainWindow extends JFrame {
 
@@ -60,7 +48,7 @@ public class MainWindow extends JFrame {
 
 	TestPlanParser testPlanParser;
 	
-	JTable samplersTable;
+	public JTable samplersTable;
 	UneditableTableModel samplersTableModel;
 	
 	JFileChooser fc = new JFileChooser();
@@ -88,9 +76,9 @@ public class MainWindow extends JFrame {
 		bodyDataText.setEditable(false);
 		bodyDataText.setLineWrap(true);
 		
-		samplersTableModel = new UneditableTableModel(testPlanParser);
+		samplersTableModel = new UneditableTableModel(testPlanParser, this);
 		samplersTableModel.addColumn("Samplers");
-		JTable samplersTable = new JTable(samplersTableModel);
+		samplersTable = new JTable(samplersTableModel);
 		for (int i = 0; i < samplersTable.getColumnCount(); i++) {
 			SamplersTableCellRenderer cr = new SamplersTableCellRenderer(1500);
 			samplersTable.setDefaultRenderer(samplersTable.getColumnClass(i), cr);
@@ -108,7 +96,7 @@ public class MainWindow extends JFrame {
 					JMenuItem copyItem = new JMenuItem("Copy");
 					copyItem.addActionListener(new ActionListener() {
 						public void actionPerformed(ActionEvent e) {
-							String myString = testPlanParser.httpSamplers.get((String) samplersTable.getModel().getValueAt(samplersTable.getSelectedRow(), 0));
+							String myString = getSelectedRowValue().bodyData;
 							StringSelection stringSelection = new StringSelection(myString);
 							Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 							clipboard.setContents(stringSelection, null);
@@ -124,7 +112,8 @@ public class MainWindow extends JFrame {
 			public void valueChanged(ListSelectionEvent e) {
 				int[] rowIndices = samplersTable.getSelectionModel().getSelectedIndices();
 				if (rowIndices.length > 0) {
-					String bodyData = testPlanParser.httpSamplers.get((String) samplersTable.getModel().getValueAt(rowIndices[0],0));
+					String index = (String)samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(rowIndices[0]), 1);
+					String bodyData = getSelectedRowValue().bodyData;
 					bodyDataText.setText(bodyData);
 				}
 			}
@@ -174,21 +163,28 @@ public class MainWindow extends JFrame {
 		pack();
 	}
 	
-	public void setHttpSamplers(String[] httpSamplers) {
-		String[][] samplersRow = new String[httpSamplers.length][1];
+	public void setHttpSamplers(httpSampler[] httpSamplers) {
+		String[][] samplersRow = new String[httpSamplers.length][2];
 		for (int i = 0; i < samplersRow.length; i++) {
-			samplersRow[i][0] = httpSamplers[i];
+			samplersRow[i][0] = httpSamplers[i].name;
+			samplersRow[i][1] = Integer.toString(httpSamplers[i].id);
 		}
-		String[] samplersCol = new String[] {"Samplers"};
+		String[] samplersCol = new String[] {"Samplers", "id"};
 		
+		samplersTableModel.addColumn("id");
 		samplersTableModel.setDataVector(samplersRow, samplersCol);
-
+		TableColumnModel tcm = samplersTable.getColumnModel(); 
+		tcm.removeColumn(tcm.getColumn(1));
 	}
 	
 	public void filterSamplers(TableRowSorter sorter, String filterText) {
-		
 //		sorter.setRowFilter(RowFilter.regexFilter(filterText, 0));
 		sorter.setRowFilter(new SimpleRowFilter(filterText));
+	}
+	
+	public httpSampler getSelectedRowValue() {
+		String index = (String)samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow()), 1);
+		return testPlanParser.httpSamplers.get(Integer.parseInt(index));
 	}
 	
 	public void saveSettings() {
@@ -224,61 +220,4 @@ public class MainWindow extends JFrame {
 			}
 		}
 	}
-	
-	class UneditableTableModel extends DefaultTableModel {
-		
-		TestPlanParser parser;
-		
-		public UneditableTableModel(TestPlanParser pars) {
-			parser = pars;
-		}
-		
-		public boolean isCellEditable(int row, int col) {
-			return false;
-		}
-	}
-	
-	class SamplersTableCellRenderer extends DefaultTableCellRenderer {
-		int bigBodyDataSize;
-		
-		public SamplersTableCellRenderer(int bigSize) {
-			bigBodyDataSize = bigSize;
-		}
-		
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
-			Component com = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-			UneditableTableModel tableModel = (UneditableTableModel)table.getModel();
-			String rowValue = (String) tableModel.getValueAt(row, col);
-			String bodyData = tableModel.parser.httpSamplers.get(rowValue);
-			if (bodyData == null) {
-				com.setBackground(new Color(1,.5f,.2f));
-				return com;
-			}
-			int bodyDataSize = bodyData.length();
-			if (bodyDataSize == 0) bodyDataSize = 1;
-			float r = (float)bodyDataSize/(float)bigBodyDataSize;
-			if (r < 0) r = 0; if (r > 1) r = 1;
-			float g = 1f - (float)bodyDataSize/(float)bigBodyDataSize;
-			if (g < 0) g = 0; if (g > 1) g = 1;
-			float b = 0;
-			com.setBackground(Color.white);
-			com.setForeground(new Color(r,g,b));
-			return com;
-		}
-	}
-	
-	class SimpleRowFilter extends RowFilter {
-		String searchText;
-		public SimpleRowFilter(String SearchText) {
-			super();
-			searchText = SearchText;
-		}
-		public boolean include(Entry entry) {
-			if (entry.getStringValue(0).contains(searchText)) {
-				return true;
-			}
-			return false;
-		}
-	}
-	
 }

@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -15,12 +17,15 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+
+import GUI.MainWindow;
+
 import org.w3c.dom.Element;
 
 
 public class TestPlanParser {
 
-	HashMap<String, String> httpSamplers = new HashMap<String, String>();
+	public ArrayList<httpSampler> httpSamplers = new ArrayList<httpSampler>();
 	MainWindow window;
 	
 	public TestPlanParser() {
@@ -37,7 +42,6 @@ public class TestPlanParser {
 			
 			NodeList httpSamplersNodes = doc.getElementsByTagName("HTTPSamplerProxy");
 			Node sampler;
-			ArrayList<String> samplerNamesList = new ArrayList<String>();
 			for (int i = 0; true; i++) {
 				sampler = httpSamplersNodes.item(i);
 				if (sampler == null) {
@@ -45,18 +49,21 @@ public class TestPlanParser {
 				}
 				
 				String samplerName = sampler.getAttributes().getNamedItem("testname").getNodeValue();
-				samplerNamesList.add(samplerName);
 				Node stringProp = findNodeWithAttribure(sampler, "stringProp", "name", "Argument.value");
-				
+
+				String textContent = "";
 				if (stringProp != null) {
-					httpSamplers.put(samplerName, stringProp.getTextContent());
+					textContent = stringProp.getTextContent();
 				}
+				
+				httpSampler HttpSampler = new httpSampler(samplerName, i, textContent);
+				httpSamplers.add(HttpSampler);
 			}
 			
-			String[] samplersNamesArray = new String[samplerNamesList.size()];
-			samplerNamesList.toArray(samplersNamesArray);
+			httpSampler[] samplersArray = new httpSampler[httpSamplers.size()];
+			httpSamplers.toArray(samplersArray);
 
-			window.setHttpSamplers(samplersNamesArray);
+			window.setHttpSamplers(samplersArray);
 		} catch (ParserConfigurationException | SAXException | IOException e) {
 			e.printStackTrace();
 		}
