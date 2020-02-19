@@ -23,7 +23,7 @@ public class TestPlanParser {
 	HashMap<String, String> httpSamplers = new HashMap<String, String>();
 	MainWindow window;
 	
-	public TestPlanParser(String filename) {
+	public TestPlanParser() {
 		window = new MainWindow(this);
 		window.setVisible(true);
 	}
@@ -83,7 +83,7 @@ public class TestPlanParser {
 	}
 
 	public static void main(String[] args) {
-		new TestPlanParser(args[0]);
+		new TestPlanParser();
 	}
 
 }
