@@ -51,7 +51,7 @@ public class TestPlanParser {
 				String samplerName = sampler.getAttributes().getNamedItem("testname").getNodeValue();
 				Node stringProp = findNodeWithAttribure(sampler, "stringProp", "name", "Argument.value");
 
-				String textContent = "";
+				String textContent = null;
 				if (stringProp != null) {
 					textContent = stringProp.getTextContent();
 				}

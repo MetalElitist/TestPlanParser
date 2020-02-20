@@ -60,6 +60,13 @@ public class MainWindow extends JFrame {
 	JFileChooser fc = new JFileChooser();
 	boolean sortOrderState;
 	
+	int SAMPLER_NAMES_COLUMN = 0;
+	int SAMPLER_ID_COLUMN = 1;
+	int BODY_DATA_SIZE_COLUMN = 2;
+	
+	// FIXME: move to table selection model, should be converted to table model
+	int lastSelectedRow = -1;
+	
 	public MainWindow(TestPlanParser parser) {
 		loadSettings();
 		
@@ -76,7 +83,7 @@ public class MainWindow extends JFrame {
 		
 		JTextArea bodyDataText = new JTextArea(30,80);
 		JScrollPane bodyDataScrollPane = new JScrollPane(bodyDataText); 
-		bodyDataText.setEditable(false);
+//		bodyDataText.setEditable(false);
 		bodyDataText.setLineWrap(true);
 		
 		samplersTableModel = new UneditableTableModel(testPlanParser, this);
@@ -184,9 +191,23 @@ public class MainWindow extends JFrame {
 		samplersTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent e) {
 				int[] rowIndices = samplersTable.getSelectionModel().getSelectedIndices();
+				
+				if (lastSelectedRow != -1) {
+					httpSampler sampler = getRowValue(lastSelectedRow);
+					if (sampler.bodyData != null) {
+						sampler.bodyData = bodyDataText.getText();
+						samplersTableModel.setValueAt(sampler.bodyData.length(), lastSelectedRow, BODY_DATA_SIZE_COLUMN);
+					}
+				}
 				if (rowIndices.length > 0) {
 					String bodyData = getSelectedRowValue().bodyData;
-					bodyDataText.setText(bodyData);
+					if (bodyData != null) {
+						bodyDataText.setText(bodyData);
+						bodyDataText.setEnabled(true);
+					} else {
+						bodyDataText.setEnabled(false);
+					}
+					lastSelectedRow = samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow());
 				}
 			}
 		});
@@ -217,9 +238,12 @@ public class MainWindow extends JFrame {
 	public void setHttpSamplers(httpSampler[] httpSamplers) {
 		Object[][] samplersRow = new Object[httpSamplers.length][3];
 		for (int i = 0; i < samplersRow.length; i++) {
-			samplersRow[i][0] = httpSamplers[i].name;
-			samplersRow[i][1] = httpSamplers[i].id;
-			samplersRow[i][2] = httpSamplers[i].bodyData.length();
+			samplersRow[i][SAMPLER_NAMES_COLUMN] = httpSamplers[i].name;
+			samplersRow[i][SAMPLER_ID_COLUMN] = httpSamplers[i].id;
+			if (httpSamplers[i].bodyData != null) 
+				samplersRow[i][BODY_DATA_SIZE_COLUMN] = httpSamplers[i].bodyData.length();
+			else
+				samplersRow[i][BODY_DATA_SIZE_COLUMN] = 0;
 		}
 		String[] samplersCol = new String[] {"Samplers", "id", "dataSize"};
 		
@@ -239,7 +263,12 @@ public class MainWindow extends JFrame {
 	public httpSampler getSelectedRowValue() {
 //		int index = samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow()), 1);
 		int index = samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow());
-		return testPlanParser.httpSamplers.get(index);
+		return getRowValue(index);
+	}
+	
+	// rowIndex should be converted to model
+	public httpSampler getRowValue(int rowIndex) { 
+		return testPlanParser.httpSamplers.get(rowIndex);
 	}
 	
 	public void saveSettings() {
@@ -260,13 +289,13 @@ public class MainWindow extends JFrame {
 
 		ArrayList<RowSorter.SortKey> sortKeys = new ArrayList<RowSorter.SortKey>();
 		if (sort == "Name") {
-			sortKeys.add(new RowSorter.SortKey(0, order));
+			sortKeys.add(new RowSorter.SortKey(SAMPLER_NAMES_COLUMN, order));
 			sorter.setSortKeys(sortKeys);
 		} else if (sort == "Data size") {
-			sortKeys.add(new RowSorter.SortKey(2, order));
+			sortKeys.add(new RowSorter.SortKey(BODY_DATA_SIZE_COLUMN, order));
 			sorter.setSortKeys(sortKeys);
 		} else if (sort == "Execution order") {
-			sortKeys.add(new RowSorter.SortKey(1, order));
+			sortKeys.add(new RowSorter.SortKey(SAMPLER_ID_COLUMN, order));
 			sorter.setSortKeys(sortKeys);
 		}
 	}

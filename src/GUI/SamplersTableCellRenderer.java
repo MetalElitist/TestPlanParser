@@ -18,7 +18,7 @@ public class SamplersTableCellRenderer extends DefaultTableCellRenderer {
 		UneditableTableModel tableModel = (UneditableTableModel)table.getModel();
 		String bodyData = tableModel.parser.httpSamplers.get(table.convertRowIndexToModel(row)).bodyData;
 		if (bodyData == null) {
-			com.setBackground(new Color(1,.5f,.2f));
+			com.setBackground(new Color(1f,.6f,.8f));
 			return com;
 		}
 		int bodyDataSize = bodyData.length();
