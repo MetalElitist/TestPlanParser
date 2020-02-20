@@ -56,6 +56,7 @@ public class MainWindow extends JFrame {
 	
 	public JTable samplersTable;
 	UneditableTableModel samplersTableModel;
+	SamplersTableCellRenderer cr = new SamplersTableCellRenderer(1000);
 	
 	JTextArea bodyDataText;
 	
@@ -69,13 +70,9 @@ public class MainWindow extends JFrame {
 	// FIXME: move to table selection model, should be converted to table model
 	int lastSelectedRow = -1;
 
-	// needs to prevent sampler changing when changing row selection after setting new samplers in table
-	// from new opened file
-	boolean firstSelecttionAfterSamplersSet = false;
-	
 	public MainWindow(TestPlanParser parser) {
 		loadSettings();
-		
+
 		testPlanParser = parser;
 		
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -96,7 +93,6 @@ public class MainWindow extends JFrame {
 		samplersTableModel.addColumn("Samplers");
 		samplersTable = new JTable(samplersTableModel);
 		for (int i = 0; i < samplersTable.getColumnCount(); i++) {
-			SamplersTableCellRenderer cr = new SamplersTableCellRenderer(1500);
 			samplersTable.setDefaultRenderer(samplersTable.getColumnClass(i), cr);
 		}
 
@@ -113,11 +109,16 @@ public class MainWindow extends JFrame {
 		JMenuItem saveFileMenuItem = new JMenuItem("Save");
 		saveFileMenuItem.setEnabled(false);
 		
-		addListeners(sortType, sorter, header, bodyDataText, searchField, openFileMenuItem, saveFileMenuItem);
+		JMenu editMenu = new JMenu("Edit");
+		JMenuItem settingsMenuItem = new JMenuItem("Settings");
+		
+		addListeners(sortType, sorter, header, bodyDataText, searchField, openFileMenuItem, saveFileMenuItem, settingsMenuItem);
 		
 		menuBar.add(fileMenu);
+		menuBar.add(editMenu);
 		fileMenu.add(openFileMenuItem);
 		fileMenu.add(saveFileMenuItem);
+		editMenu.add(settingsMenuItem);
 
 		JPanel samplersPanel = new JPanel();
 		JScrollPane scrollPane = new JScrollPane(samplersTable);
@@ -140,10 +141,12 @@ public class MainWindow extends JFrame {
 		add(bodyDataScrollPane);
 		
 		pack();
+		
 	}
 	
 	private void addListeners(JComboBox sortType, TableRowSorter<TableModel> sorter, JTableHeader samplersColumnHeader, 
-			JTextArea bodyDataText, JTextField searchField, JMenuItem openFileMenuItem, JMenuItem saveFileMenuItem) {
+			JTextArea bodyDataText, JTextField searchField, JMenuItem openFileMenuItem, JMenuItem saveFileMenuItem, 
+			JMenuItem settingsMenuItem) {
 		this.addWindowListener(new WindowListener() {
 			public void windowClosing(WindowEvent e) {
 				saveSettings();
@@ -203,13 +206,7 @@ public class MainWindow extends JFrame {
 				
 				if (lastSelectedRow != -1) {
 					httpSampler sampler = getRowValue(lastSelectedRow);
-					if (sampler.bodyData != null && !firstSelecttionAfterSamplersSet) {
-						sampler.bodyData = bodyDataText.getText();
-						samplersTableModel.setValueAt(sampler.bodyData.length(), lastSelectedRow, BODY_DATA_SIZE_COLUMN);
-					}
-					if (firstSelecttionAfterSamplersSet && samplersTable.getSelectedRow() != -1) {
-						firstSelecttionAfterSamplersSet = false;
-					}
+					setSamplerBodyData(sampler);
 				}
 				if (rowIndices.length > 0) {
 					String bodyData = getSelectedRowValue().bodyData;
@@ -226,10 +223,8 @@ public class MainWindow extends JFrame {
 		
 		bodyDataText.getDocument().addDocumentListener(new DocumentListener() {
 			public void insertUpdate(DocumentEvent e) {
-				System.out.println("insertUpdate");
 			}
 			public void removeUpdate(DocumentEvent e) {
-				System.out.println("removeUpdate");
 			}
 			public void changedUpdate(DocumentEvent e) {
 			}
@@ -261,16 +256,22 @@ public class MainWindow extends JFrame {
 		saveFileMenuItem.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				try {
+					setSamplerBodyData(getSelectedRowValue());
 					testPlanParser.saveFile();
 				} catch (Exception e1) {
 					e1.printStackTrace();
 				}
 			}
 		});
+		
+		settingsMenuItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+			}
+		});
 	}
 	
 	public void setHttpSamplers(httpSampler[] httpSamplers) {
-		firstSelecttionAfterSamplersSet = true;
+		lastSelectedRow = -1;
 		
 		Object[][] samplersRow = new Object[httpSamplers.length][3];
 		for (int i = 0; i < samplersRow.length; i++) {
@@ -293,6 +294,13 @@ public class MainWindow extends JFrame {
 		bodyDataText.setText("");
 	}
 	
+	public void setSamplerBodyData(httpSampler sampler) {
+		if (sampler.bodyData != null) {
+			sampler.bodyData = bodyDataText.getText();
+			samplersTableModel.setValueAt(sampler.bodyData.length(), lastSelectedRow, BODY_DATA_SIZE_COLUMN);
+		}
+	}
+	
 	public void filterSamplers(TableRowSorter sorter, String filterText) {
 //		sorter.setRowFilter(RowFilter.regexFilter(filterText, 0));
 		sorter.setRowFilter(new SimpleRowFilter(filterText));
@@ -306,19 +314,6 @@ public class MainWindow extends JFrame {
 	// rowIndex should be converted to model
 	public httpSampler getRowValue(int rowIndex) { 
 		return testPlanParser.httpSamplers.get(rowIndex);
-	}
-	
-	public void saveSettings() {
-		File file = new File("settings");
-		BufferedWriter writer;
-		try {
-			writer = new BufferedWriter(new FileWriter(file));
-			String settingsString = String.format("lastOpenFileLocation=%s", fc.getCurrentDirectory().getAbsolutePath());
-			writer.write(settingsString);
-			writer.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 	}
 	
 	public void sort(TableRowSorter<TableModel> sorter, String sortType, SortOrder order) {
@@ -337,6 +332,22 @@ public class MainWindow extends JFrame {
 		}
 	}
 	
+	public void saveSettings() {
+		File file = new File("settings");
+		BufferedWriter writer;
+		try {
+			writer = new BufferedWriter(new FileWriter(file));
+			String settingsString = String.format(
+                                                  "lastOpenFileLocation=%s\n\r"
+                                                + "bigBodyDataSize=%d\n\r", 
+					fc.getCurrentDirectory().getAbsolutePath(), cr.bigBodyDataSize);
+			writer.write(settingsString);
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public void loadSettings() {
 		File file = new File("settings");
 		if (file.exists()) {
@@ -347,6 +358,9 @@ public class MainWindow extends JFrame {
 					if (line.startsWith("lastOpenFileLocation=")) {
 						String directory = line.split("=")[1];
 						fc.setCurrentDirectory(new File(directory));
+					} else if (line.startsWith("bigBodyDataSize=")) {
+						String size = line.split("=")[1];
+						cr.bigBodyDataSize = Integer.parseInt(size);
 					}
 				}
 				reader.close();
