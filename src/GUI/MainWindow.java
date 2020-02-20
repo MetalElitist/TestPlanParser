@@ -58,21 +58,14 @@ public class MainWindow extends JFrame {
 	UneditableTableModel samplersTableModel;
 	
 	JFileChooser fc = new JFileChooser();
+	boolean sortOrderState;
 	
 	public MainWindow(TestPlanParser parser) {
-		MainWindow thisWindow = this;
-		
 		loadSettings();
 		
 		testPlanParser = parser;
 		
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		this.addWindowListener(new WindowListener() {
-			public void windowClosing(WindowEvent e) {
-				saveSettings();
-			}
-			public void windowOpened(WindowEvent e) {}public void windowClosed(WindowEvent e) {}public void windowIconified(WindowEvent e) {}public void windowDeiconified(WindowEvent e) {}public void windowActivated(WindowEvent e) {}public void windowDeactivated(WindowEvent e) {}
-		});
 		
 		JLabel sortLabel = new JLabel("Sort by: ");
 		JComboBox sortType = new JComboBox(new String[] {"Execution order", "Name", "Data size"});
@@ -97,23 +90,66 @@ public class MainWindow extends JFrame {
 		TableRowSorter<TableModel> sorter = new TableRowSorter<TableModel>(samplersTable.getModel());
 		samplersTable.setRowSorter(sorter);
 		
+		sortOrderState = true;
+		
+		JTableHeader header = samplersTable.getTableHeader();
+		
+		JMenuBar menuBar = new JMenuBar();
+		JMenu fileMenu = new JMenu("File");
+		JMenuItem openFileMenuItem = new JMenuItem("Open");
+		
+		addListeners(sortType, sorter, header, bodyDataText, searchField, openFileMenuItem);
+		
+		menuBar.add(fileMenu);
+		fileMenu.add(openFileMenuItem);
+
+		JPanel samplersPanel = new JPanel();
+		JScrollPane scrollPane = new JScrollPane(samplersTable);
+		
+		samplersPanel.setLayout(new BoxLayout(samplersPanel, BoxLayout.Y_AXIS));
+		
+		JPanel samplersPanelTop = new JPanel();
+		samplersPanelTop.setLayout(new BoxLayout(samplersPanelTop, BoxLayout.X_AXIS));
+		
+		setJMenuBar(menuBar);
+		samplersPanelTop.add(searchField);
+		samplersPanelTop.add(sortLabel);
+		samplersPanelTop.add(sortType);
+		samplersPanel.add(samplersPanelTop);
+		samplersPanel.add(scrollPane);
+		
+		setLayout(new BoxLayout(getContentPane(), BoxLayout.X_AXIS));
+
+		add(samplersPanel);
+		add(bodyDataScrollPane);
+		
+		pack();
+	}
+	
+	private void addListeners(JComboBox sortType, TableRowSorter<TableModel> sorter, JTableHeader samplersColumnHeader, 
+			JTextArea bodyDataText, JTextField searchField, JMenuItem openFileMenuItem) {
+		this.addWindowListener(new WindowListener() {
+			public void windowClosing(WindowEvent e) {
+				saveSettings();
+			}
+			public void windowOpened(WindowEvent e) {}public void windowClosed(WindowEvent e) {}public void windowIconified(WindowEvent e) {}public void windowDeiconified(WindowEvent e) {}public void windowActivated(WindowEvent e) {}public void windowDeactivated(WindowEvent e) {}
+		});
+		
 		sortType.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				sort(sorter, sortType.getSelectedItem().toString(), SortOrder.ASCENDING);
+				SortOrder sortOrder = SortOrder.ASCENDING;
+				if (!sortOrderState) sortOrder = SortOrder.DESCENDING;
+				sort(sorter, sortType.getSelectedItem().toString(), sortOrder);
 			}
 		});
-		JTableHeader header = samplersTable.getTableHeader();
-		header.addMouseListener(new MouseListener() {
-			boolean state;
-//			public MouseListener() {
-//				state = false;
-//			}
+		
+		samplersColumnHeader.addMouseListener(new MouseListener() {
 			public void mouseClicked(MouseEvent e) {
 				int column = samplersTable.columnAtPoint(e.getPoint());
 				if (column == 0) {
-					state = !state;
+					sortOrderState = !sortOrderState;
 					SortOrder order;
-					if (state) order = SortOrder.ASCENDING; else {
+					if (sortOrderState) order = SortOrder.ASCENDING; else {
 						order = SortOrder.DESCENDING;
 					}
 					sort(sorter, sortType.getSelectedItem().toString(), order);
@@ -144,6 +180,7 @@ public class MainWindow extends JFrame {
 			}
 			public void mouseEntered(MouseEvent arg0) {}public void mouseExited(MouseEvent arg0) {}public void mousePressed(MouseEvent arg0) {}public void mouseReleased(MouseEvent arg0) {}
 		});
+		
 		samplersTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent e) {
 				int[] rowIndices = samplersTable.getSelectionModel().getSelectedIndices();
@@ -164,9 +201,7 @@ public class MainWindow extends JFrame {
 			}
 		});
 		
-		JMenuBar menuBar = new JMenuBar();
-		JMenu fileMenu = new JMenu("File");
-		JMenuItem openFileMenuItem = new JMenuItem("Open");
+		MainWindow thisWindow = this;
 		
 		openFileMenuItem.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -177,31 +212,6 @@ public class MainWindow extends JFrame {
 				}
 			}
 		});
-		
-		menuBar.add(fileMenu);
-		fileMenu.add(openFileMenuItem);
-
-		JPanel samplersPanel = new JPanel();
-		JScrollPane scrollPane = new JScrollPane(samplersTable);
-		
-		samplersPanel.setLayout(new BoxLayout(samplersPanel, BoxLayout.Y_AXIS));
-		
-		JPanel samplersPanelTop = new JPanel();
-		samplersPanelTop.setLayout(new BoxLayout(samplersPanelTop, BoxLayout.X_AXIS));
-		
-		setJMenuBar(menuBar);
-		samplersPanelTop.add(searchField);
-		samplersPanelTop.add(sortLabel);
-		samplersPanelTop.add(sortType);
-		samplersPanel.add(samplersPanelTop);
-		samplersPanel.add(scrollPane);
-		
-		setLayout(new BoxLayout(getContentPane(), BoxLayout.X_AXIS));
-
-		add(samplersPanel);
-		add(bodyDataScrollPane);
-		
-		pack();
 	}
 	
 	public void setHttpSamplers(httpSampler[] httpSamplers) {
@@ -213,14 +223,7 @@ public class MainWindow extends JFrame {
 		}
 		String[] samplersCol = new String[] {"Samplers", "id", "dataSize"};
 		
-//		samplersTableModel.addColumn("id");
-//		samplersTableModel.addColumn("dataSize");
-		
 		samplersTableModel.setDataVector(samplersRow, samplersCol);
-		System.out.println(samplersTable.getColumnClass(0).toString());
-		System.out.println(samplersTable.getColumnClass(1).toString());
-		System.out.println(samplersTable.getColumnClass(2).toString());
-		
 		
 		TableColumnModel tcm = samplersTable.getColumnModel(); 
 		
