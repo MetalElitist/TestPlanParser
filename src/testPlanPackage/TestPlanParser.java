@@ -12,6 +12,10 @@ import java.util.Set;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -27,6 +31,7 @@ public class TestPlanParser {
 
 	public ArrayList<httpSampler> httpSamplers = new ArrayList<httpSampler>();
 	MainWindow window;
+	File openedFile;
 	
 	public TestPlanParser() {
 		window = new MainWindow(this);
@@ -34,11 +39,13 @@ public class TestPlanParser {
 	}
 	
 	public void openFile(File fXmlFile) {
+		httpSamplers.clear();
+		openedFile = fXmlFile;
 		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder dBuilder;
 		try {
 			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(fXmlFile);
+			Document doc = dBuilder.parse(openedFile);
 			
 			NodeList httpSamplersNodes = doc.getElementsByTagName("HTTPSamplerProxy");
 			Node sampler;
@@ -65,6 +72,47 @@ public class TestPlanParser {
 
 			window.setHttpSamplers(samplersArray);
 		} catch (ParserConfigurationException | SAXException | IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void saveFile() throws Exception {
+		DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder dBuilder;
+		try {
+			dBuilder = dbFactory.newDocumentBuilder();
+			Document doc = dBuilder.parse(openedFile);
+			
+			NodeList httpSamplersNodes = doc.getElementsByTagName("HTTPSamplerProxy");
+			Node sampler;
+			for (int i = 0; true; i++) {
+				sampler = httpSamplersNodes.item(i);
+				if (sampler == null) {
+					break;
+				}
+				
+				String samplerName = sampler.getAttributes().getNamedItem("testname").getNodeValue();
+				if (!samplerName.equals(httpSamplers.get(i).name)) {
+					throw new Exception("Error: samplers in %s do not correspond to httpSamplers list");
+				}
+				Node stringProp = findNodeWithAttribure(sampler, "stringProp", "name", "Argument.value");
+				
+				if (stringProp != null) {
+					stringProp.setTextContent(httpSamplers.get(i).bodyData);
+				}
+			}
+			
+			TransformerFactory transFactory = TransformerFactory.newInstance();
+			Transformer transformer = transFactory.newTransformer();
+			DOMSource domS = new DOMSource(doc);
+			StreamResult stream = new StreamResult(openedFile);
+			transformer.transform(domS, stream);
+			
+		} catch (ParserConfigurationException e) {
+			e.printStackTrace();
+		} catch (SAXException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}

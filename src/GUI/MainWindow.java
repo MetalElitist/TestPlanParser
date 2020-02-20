@@ -57,6 +57,8 @@ public class MainWindow extends JFrame {
 	public JTable samplersTable;
 	UneditableTableModel samplersTableModel;
 	
+	JTextArea bodyDataText;
+	
 	JFileChooser fc = new JFileChooser();
 	boolean sortOrderState;
 	
@@ -66,6 +68,10 @@ public class MainWindow extends JFrame {
 	
 	// FIXME: move to table selection model, should be converted to table model
 	int lastSelectedRow = -1;
+
+	// needs to prevent sampler changing when changing row selection after setting new samplers in table
+	// from new opened file
+	boolean firstSelecttionAfterSamplersSet = false;
 	
 	public MainWindow(TestPlanParser parser) {
 		loadSettings();
@@ -81,7 +87,7 @@ public class MainWindow extends JFrame {
 		JTextField searchField = new JTextField();
 		searchField.setMaximumSize(new Dimension(500, 20));
 		
-		JTextArea bodyDataText = new JTextArea(30,80);
+		bodyDataText = new JTextArea(30,80);
 		JScrollPane bodyDataScrollPane = new JScrollPane(bodyDataText); 
 //		bodyDataText.setEditable(false);
 		bodyDataText.setLineWrap(true);
@@ -104,11 +110,14 @@ public class MainWindow extends JFrame {
 		JMenuBar menuBar = new JMenuBar();
 		JMenu fileMenu = new JMenu("File");
 		JMenuItem openFileMenuItem = new JMenuItem("Open");
+		JMenuItem saveFileMenuItem = new JMenuItem("Save");
+		saveFileMenuItem.setEnabled(false);
 		
-		addListeners(sortType, sorter, header, bodyDataText, searchField, openFileMenuItem);
+		addListeners(sortType, sorter, header, bodyDataText, searchField, openFileMenuItem, saveFileMenuItem);
 		
 		menuBar.add(fileMenu);
 		fileMenu.add(openFileMenuItem);
+		fileMenu.add(saveFileMenuItem);
 
 		JPanel samplersPanel = new JPanel();
 		JScrollPane scrollPane = new JScrollPane(samplersTable);
@@ -134,7 +143,7 @@ public class MainWindow extends JFrame {
 	}
 	
 	private void addListeners(JComboBox sortType, TableRowSorter<TableModel> sorter, JTableHeader samplersColumnHeader, 
-			JTextArea bodyDataText, JTextField searchField, JMenuItem openFileMenuItem) {
+			JTextArea bodyDataText, JTextField searchField, JMenuItem openFileMenuItem, JMenuItem saveFileMenuItem) {
 		this.addWindowListener(new WindowListener() {
 			public void windowClosing(WindowEvent e) {
 				saveSettings();
@@ -194,9 +203,12 @@ public class MainWindow extends JFrame {
 				
 				if (lastSelectedRow != -1) {
 					httpSampler sampler = getRowValue(lastSelectedRow);
-					if (sampler.bodyData != null) {
+					if (sampler.bodyData != null && !firstSelecttionAfterSamplersSet) {
 						sampler.bodyData = bodyDataText.getText();
 						samplersTableModel.setValueAt(sampler.bodyData.length(), lastSelectedRow, BODY_DATA_SIZE_COLUMN);
+					}
+					if (firstSelecttionAfterSamplersSet && samplersTable.getSelectedRow() != -1) {
+						firstSelecttionAfterSamplersSet = false;
 					}
 				}
 				if (rowIndices.length > 0) {
@@ -209,6 +221,17 @@ public class MainWindow extends JFrame {
 					}
 					lastSelectedRow = samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow());
 				}
+			}
+		});
+		
+		bodyDataText.getDocument().addDocumentListener(new DocumentListener() {
+			public void insertUpdate(DocumentEvent e) {
+				System.out.println("insertUpdate");
+			}
+			public void removeUpdate(DocumentEvent e) {
+				System.out.println("removeUpdate");
+			}
+			public void changedUpdate(DocumentEvent e) {
 			}
 		});
 		
@@ -230,12 +253,25 @@ public class MainWindow extends JFrame {
 				if (returnVal == JFileChooser.APPROVE_OPTION) {
 					File file = fc.getSelectedFile();
 					testPlanParser.openFile(file);
+					saveFileMenuItem.setEnabled(true);
+				}
+			}
+		});
+		
+		saveFileMenuItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				try {
+					testPlanParser.saveFile();
+				} catch (Exception e1) {
+					e1.printStackTrace();
 				}
 			}
 		});
 	}
 	
 	public void setHttpSamplers(httpSampler[] httpSamplers) {
+		firstSelecttionAfterSamplersSet = true;
+		
 		Object[][] samplersRow = new Object[httpSamplers.length][3];
 		for (int i = 0; i < samplersRow.length; i++) {
 			samplersRow[i][SAMPLER_NAMES_COLUMN] = httpSamplers[i].name;
@@ -249,10 +285,12 @@ public class MainWindow extends JFrame {
 		
 		samplersTableModel.setDataVector(samplersRow, samplersCol);
 		
-		TableColumnModel tcm = samplersTable.getColumnModel(); 
+		TableColumnModel tcm = samplersTable.getColumnModel();
 		
 		tcm.removeColumn(tcm.getColumn(2));
 		tcm.removeColumn(tcm.getColumn(1));
+		
+		bodyDataText.setText("");
 	}
 	
 	public void filterSamplers(TableRowSorter sorter, String filterText) {
@@ -261,7 +299,6 @@ public class MainWindow extends JFrame {
 	}
 	
 	public httpSampler getSelectedRowValue() {
-//		int index = samplersTableModel.getValueAt(samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow()), 1);
 		int index = samplersTable.convertRowIndexToModel(samplersTable.getSelectedRow());
 		return getRowValue(index);
 	}
