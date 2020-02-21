@@ -54,6 +54,8 @@ public class MainWindow extends JFrame {
 
 	TestPlanParser testPlanParser;
 	
+	SettingsWindow settingsWindow;
+	
 	public JTable samplersTable;
 	UneditableTableModel samplersTableModel;
 	SamplersTableCellRenderer cr = new SamplersTableCellRenderer(1000);
@@ -72,6 +74,7 @@ public class MainWindow extends JFrame {
 
 	public MainWindow(TestPlanParser parser) {
 		loadSettings();
+		settingsWindow = new SettingsWindow(this, cr.bigBodyDataSize);
 
 		testPlanParser = parser;
 		
@@ -221,15 +224,6 @@ public class MainWindow extends JFrame {
 			}
 		});
 		
-		bodyDataText.getDocument().addDocumentListener(new DocumentListener() {
-			public void insertUpdate(DocumentEvent e) {
-			}
-			public void removeUpdate(DocumentEvent e) {
-			}
-			public void changedUpdate(DocumentEvent e) {
-			}
-		});
-		
 		searchField.getDocument().addDocumentListener(new DocumentListener() {
 			public void changedUpdate(DocumentEvent e) {}
 			public void insertUpdate(DocumentEvent arg0) {
@@ -266,6 +260,7 @@ public class MainWindow extends JFrame {
 		
 		settingsMenuItem.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				settingsWindow.setVisible(true);
 			}
 		});
 	}
